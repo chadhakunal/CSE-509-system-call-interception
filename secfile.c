@@ -64,12 +64,12 @@ int main(int argc, char** argv) {
     aes_decrypt(ciphertext, encryption_key, iv, decryptedtext);
     // decryptedtext[strlen(decryptedtext) - 1] = '\0';
     
-    // printf("Plaintext: %s\n", plaintext);
-    // printf("Ciphertext (hex): ");
-    // for (int i = 0; i < strlen(ciphertext); i++) {
-       // printf("%02x", ciphertext[i]);
-    // }
-    // printf("\n");
+    printf("Plaintext: %s\n", plaintext);
+    printf("Ciphertext (hex): ");
+    for (int i = 0; i < strlen(ciphertext); i++) {
+        printf("%02x", ciphertext[i]);
+    }
+    printf("\n");
     
     // printf("Decrypted text: %s\n", decryptedtext);
 

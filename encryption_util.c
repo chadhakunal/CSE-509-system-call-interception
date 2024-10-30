@@ -37,6 +37,9 @@ void aes_decrypt(unsigned char *ciphertext, unsigned char *key, unsigned char *i
     if (EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, strlen((char *)ciphertext)) != 1) 
         handle_open_ssl_errors();
     
+    printf("Plain Text(%d): %s\n", len, plaintext);
+
+
     if (EVP_DecryptFinal_ex(ctx, plaintext + len, &len) != 1)
         handle_open_ssl_errors();
     
