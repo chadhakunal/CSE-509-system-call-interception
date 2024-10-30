@@ -41,7 +41,7 @@ char* get_filename(pid_t child, unsigned long addr) {
 }
 
 bool is_conf_file(char* filename) {
-    const char* ext = strrchr(pathname, '.');
+    const char* ext = strrchr(filename, '.');
     return ext && strcmp(ext, ".conf") == 0;
 }
 
@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    if (strlen(argv[1]) != 32) {
+    if (strlen(argv[1]) != 64) {
         fprintf(stderr, "Error: Encryption key must be exactly 32 bytes (256 bits).\n");
         return 1;
     }
@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
                 break;
             }
 
-            if (WIFSTOPPED(status) && WSTOPSIG(status) & 0x80) {
+            if (WIFSTOPPED(status) && (WSTOPSIG(status) & 0x80)) {
                 printf("SYSTEM CALL ENTERED!");
             }
 
@@ -116,8 +116,8 @@ int main(int argc, char** argv) {
                 break;
             }
 
-            if (WIFSTOPPED(status) && WSTOPSIG(status) & 0x80) {
-                printf("SYSTEM CALL EXIT!");
+            if (WIFSTOPPED(status) && (WSTOPSIG(status) & 0x80)) {
+                giprintf("SYSTEM CALL EXIT!");
             }
         }
         
