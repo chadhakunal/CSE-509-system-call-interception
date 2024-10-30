@@ -56,14 +56,16 @@ void trace(pid_t child, bool is_entry, unsigned char* encryption_key, char* tmp_
         case SYS_openat:
         case SYS_creat:
             if (is_entry) {
-                unsigned long pathname_addr = (syscall_num == SYS_open || syscall_num == SYS_creat) ? regs.rdi : regs.rsi;
-                tmp_data = get_filename(child, pathname_addr);
-                if (tmp_data != NULL && is_conf_file(tmp_data)) {
-                    printf("Tracking conf file: %s!\n", tmp_data);
-                }
+                printf("Open Entry Point!");
+                // unsigned long pathname_addr = (syscall_num == SYS_open || syscall_num == SYS_creat) ? regs.rdi : regs.rsi;
+                // tmp_data = get_filename(child, pathname_addr);
+                // if (tmp_data != NULL && is_conf_file(tmp_data)) {
+                //     printf("Tracking conf file: %s!\n", tmp_data);
+                // }
             } else {
-                int fd = regs.rax;
-                if (fd >= 0 && fd < MAX_FD) conf_fd[fd] = tmp_data;
+                printf("Open Exit Point!");
+                // int fd = regs.rax;
+                // if (fd >= 0 && fd < MAX_FD) conf_fd[fd] = tmp_data;
             }
             break;
             
@@ -87,7 +89,7 @@ int main(int argc, char** argv) {
     char* program_name = argv[2];
     char** program_args = &argv[3];
 
-    char* tmp_data;
+    char* tmp_data = NULL;
 
     pid_t child;
     int status;
@@ -105,9 +107,7 @@ int main(int argc, char** argv) {
                 break;
             }
 
-            if (WIFSTOPPED(status) && (WSTOPSIG(status) & 0x80)) {
-                printf("SYSTEM CALL ENTERED!");
-            }
+            trace(child, true, &encryption_key, &tmp_data);
 
             ptrace(PTRACE_SYSCALL, child, NULL, NULL);
             waitpid(child, &status, 0);
@@ -116,26 +116,9 @@ int main(int argc, char** argv) {
                 break;
             }
 
-            if (WIFSTOPPED(status) && (WSTOPSIG(status) & 0x80)) {
-                printf("SYSTEM CALL EXIT!");
-            }
+            trace(child, false, &encryption_key, &tmp_data);
         }
-        
-        // waitpid(child, &status, 0);
-        // while (WIFSTOPPED(status)) {
-        //     // Entry
-        //     ptrace(PTRACE_SYSCALL, child, NULL, NULL);
-        //     waitpid(child, &status, 0);
-        //     trace(child, true, &encryption_key, &tmp_data);
-
-        //     // Exit
-        //     ptrace(PTRACE_SYSCALL, child, NULL, NULL);
-        //     waitpid(child, &status, 0);
-        //     trace(child, false, &encryption_key, &tmp_data);
-        // }
     }
-
     free(tmp_data);
-
     return 0;
 }
