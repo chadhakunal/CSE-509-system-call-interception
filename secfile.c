@@ -17,6 +17,38 @@
 #define MAX_FD 4096
 #define AES_BLOCK_SIZE 16
 
+void set_secfile_encrypted(const char* filename) {
+    const char* attr_name = "user.secfile_encrypted";
+    const char* attr_value = "true";
+    if (setxattr(filename, attr_name, attr_value, strlen(attr_value), 0) == -1) {
+        perror("Error setting secfile_encrypted attribute");
+    }
+}
+
+bool get_secfile_encrypted(const char* filename) {
+    const char* attr_name = "user.secfile_encrypted";
+    char attr_value[5] = {0};
+    if (getxattr(filename, attr_name, attr_value, sizeof(attr_value)) == -1) {
+        if (errno == ENODATA) return false;
+        perror("Error getting secfile_encrypted attribute");
+        return false;
+    }
+    return strcmp(attr_value, "true") == 0;
+}
+
+void aes_ctr_crypt(const unsigned char* key, unsigned char* data, size_t length, unsigned long offset) {
+    AES_KEY aes_key;
+    unsigned char iv[AES_BLOCK_SIZE] = {0};
+    unsigned char ecount_buf[AES_BLOCK_SIZE] = {0};
+    unsigned int num = 0;
+
+    AES_set_encrypt_key(key, 128, &aes_key);
+    
+    *(unsigned long*)(iv + 8) = offset / AES_BLOCK_SIZE;
+
+    AES_ctr128_encrypt(data, data, length, &aes_key, iv, ecount_buf, &num);
+}
+
 char* get_filename(pid_t child, unsigned long addr) {
     char* filename = malloc(4096);
     if (!filename) return NULL;
@@ -94,6 +126,7 @@ int main(int argc, char** argv) {
                         if (fd >= 0 && fd < MAX_FD) {
                             if (filename != NULL && is_conf_file(filename)) {
                                 conf_fd[fd] = filename;
+                                set_secfile_encrypted(filename);
                             }
                         }
                     }
@@ -109,7 +142,7 @@ int main(int argc, char** argv) {
         printf("Tracking conf files: \n");
         for(int i = 0; i < MAX_FD; i++) {
             if(conf_fd[i] != NULL) {
-                printf("%s\n", conf_fd[i]);
+                printf("%s (%d)", conf_fd[i], get_secfile_encrypted(conf_fd[i]));
             }
         }
     }
