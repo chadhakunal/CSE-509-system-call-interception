@@ -56,16 +56,16 @@ void trace(pid_t child, bool is_entry, unsigned char* encryption_key, char* tmp_
         case SYS_openat:
         case SYS_creat:
             if (is_entry) {
-                printf("Open Entry Point!");
-                // unsigned long pathname_addr = (syscall_num == SYS_open || syscall_num == SYS_creat) ? regs.rdi : regs.rsi;
-                // tmp_data = get_filename(child, pathname_addr);
-                // if (tmp_data != NULL && is_conf_file(tmp_data)) {
-                //     printf("Tracking conf file: %s!\n", tmp_data);
-                // }
+                unsigned long pathname_addr = (syscall_num == SYS_open || syscall_num == SYS_creat) ? regs.rdi : regs.rsi;
+                tmp_data = get_filename(child, pathname_addr);
             } else {
-                printf("Open Exit Point!");
-                // int fd = regs.rax;
-                // if (fd >= 0 && fd < MAX_FD) conf_fd[fd] = tmp_data;
+                int fd = regs.rax;
+                if (fd >= 0 && fd < MAX_FD) {
+                    if (tmp_data != NULL && is_conf_file(tmp_data)) {
+                        printf("Tracking conf file: %s!\n", tmp_data);
+                        conf_fd[fd] = tmp_data;
+                    }
+                }
             }
             break;
             
