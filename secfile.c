@@ -1,95 +1,113 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/user.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <syscall.h>
+#include <errno.h>
+#include <sys/xattr.h>
+#include <openssl/aes.h>
+#include <openssl/rand.h>
 
-#include "encryption_util.h"
+#define MAX_FD 4096
+#define AES_BLOCK_SIZE 16
 
-const char *syscall_names[] = {
-    [0] = "read",
-    [1] = "write",
-    [2] = "open",
-    [3] = "close",
-    [60] = "exit",
-    [57] = "fork"
-};
+char* conf_fd[MAX_FD] = {NULL};
 
-void print_syscall_name(int syscall_num) {
-    if (syscall_num >= 0 && syscall_num < sizeof(syscall_names) / sizeof(syscall_names[0]) && syscall_names[syscall_num] != NULL) {
-        printf("System call: %s\n", syscall_names[syscall_num]);
-    } else {
-        printf("Unknown system call: %d\n", syscall_num);
+char* get_filename(pid_t child, unsigned long addr) {
+    char* filename = malloc(4096);
+    if (!filename) return NULL;
+
+    int i = 0;
+    long word;
+
+    while (i < 4096) {
+        word = ptrace(PTRACE_PEEKDATA, child, addr + i, NULL);
+        if (word == -1) {
+            perror("ptrace PEEKDATA error");
+            free(filename);
+            return NULL;
+        }
+        memcpy(filename + i, &word, sizeof(word));
+        if (memchr(&word, 0, sizeof(word)) != NULL) break;
+        i += sizeof(word);
+    }
+    return filename;
+}
+
+bool is_conf_file(char* filename) {
+    const char* ext = strrchr(pathname, '.');
+    return ext && strcmp(ext, ".conf") == 0;
+}
+
+void trace(pid_t child, bool is_entry, unsigned char* encryption_key, char* tmp_data) {
+    struct user_regs_struct regs;
+
+    ptrace(PTRACE_GETREGS, child, NULL, &regs);
+    int syscall_num = regs.orig_rax;
+
+    switch (syscall_num) {
+        case SYS_open:
+        case SYS_openat:
+        case SYS_creat:
+            if (is_entry) {
+                unsigned long pathname_addr = (syscall_num == SYS_open || syscall_num == SYS_creat) ? regs.rdi : regs.rsi;
+                tmp_data = get_filename(child, pathname_addr);
+                if (tmp_data != NULL && is_conf_file(tmp_data)) {
+                    printf("Tracking conf file: %s!\n", tmp_data);
+                }
+            } else {
+                int fd = regs.rax;
+                if (fd >= 0 && fd < MAX_FD) conf_fd[fd] = tmp_data;
+            }
+            break;
+            
+        default:
+            break;
     }
 }
 
 int main(int argc, char** argv) {
-    if(argc < 4) {
+    if (argc < 4) {
         fprintf(stderr, "Usage: %s <encryption_key> <program> <args>\n", argv[0]);
         return 1;
     }
 
-    char* encryption_key = argv[1];
-    char* program_name = argv[2];
-    char** program_args = &argv[3];
-
-    printf("Encryption Key: %s\n", encryption_key);
-    printf("Program: %s\n", program_name);
-    printf("Args: ");
-    for(int i = 0; i < argc - 3; i++) {
-        printf("%s ", program_args[i]);
-    }
-    printf("\n");
-
-    pid_t child;
-    int status;
-    struct user_regs_struct regs;
-
-
-    unsigned char *plaintext = (unsigned char *)"This is a secret message!";
-    unsigned char iv[16];
-    
-    if (!RAND_bytes(iv, 16)) {
-        fprintf(stderr, "Random key/IV generation failed\n");
+    if (strlen(argv[1]) != 32) {
+        fprintf(stderr, "Error: Encryption key must be exactly 32 bytes (256 bits).\n");
         return 1;
     }
 
-    unsigned char ciphertext[128];
-    unsigned char decryptedtext[128];
+    unsigned char* encryption_key = (unsigned char*)argv[1];
+    char* program_name = argv[2];
+    char** program_args = &argv[3];
 
-    int ciphertext_len = aes_encrypt(plaintext, key, iv, ciphertext);
-    
-    int decryptedtext_len = aes_decrypt(ciphertext, ciphertext_len, key, iv, decryptedtext);
-    decryptedtext[decryptedtext_len] = '\0';
-    
-    printf("Plaintext: %s\n", plaintext);
-    printf("Ciphertext (hex): ");
-    for (int i = 0; i < ciphertext_len; i++) {
-        printf("%02x", ciphertext[i]);
-    }
-    printf("\n");
-    
-    printf("Decrypted text: %s\n", decryptedtext);
+    char* tmp_data;
+
+    pid_t child;
+    int status;
 
     child = fork();
-    if(child == 0) {
+    if (child == 0) {
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         execvp(program_name, program_args);
     } else {
         waitpid(child, &status, 0);
-        while(WIFEXITED(status)) {
+        while (WIFSTOPPED(status)) {
+            // Entry
             ptrace(PTRACE_SYSCALL, child, NULL, NULL);
             waitpid(child, &status, 0);
+            trace(child, true, &encryption_key, &tmp_data);
 
-            ptrace(PTRACE_GETREGS, child, NULL, &regs);
-            int syscall_num = regs.orig_rax;
-
-            print_syscall_name(syscall_num);
-
+            // Exit
             ptrace(PTRACE_SYSCALL, child, NULL, NULL);
             waitpid(child, &status, 0);
+            trace(child, false, &encryption_key, &tmp_data);
         }
     }
 

@@ -51,3 +51,47 @@ int aes_decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *ke
     EVP_CIPHER_CTX_free(ctx);
     return plaintext_len;
 }
+
+
+// unsigned char *plaintext = (unsigned char *)"This is a secret message!";
+// unsigned char iv[16];
+
+// if (!RAND_bytes(iv, 16)) {
+//     fprintf(stderr, "Random key/IV generation failed\n");
+//     return 1;
+// }
+
+// unsigned char ciphertext[128];
+// unsigned char decryptedtext[128];
+
+// int ciphertext_len = aes_encrypt(plaintext, key, iv, ciphertext);
+
+// int decryptedtext_len = aes_decrypt(ciphertext, ciphertext_len, key, iv, decryptedtext);
+// decryptedtext[decryptedtext_len] = '\0';
+
+// printf("Plaintext: %s\n", plaintext);
+// printf("Ciphertext (hex): ");
+// for (int i = 0; i < ciphertext_len; i++) {
+//     printf("%02x", ciphertext[i]);
+// }
+// printf("\n");
+
+// printf("Decrypted text: %s\n", decryptedtext);
+
+
+// const char *syscall_names[] = {
+//     [0] = "read",
+//     [1] = "write",
+//     [2] = "open",
+//     [3] = "close",
+//     [60] = "exit",
+//     [57] = "fork"
+// };
+
+// void print_syscall_name(int syscall_num) {
+//     if (syscall_num >= 0 && syscall_num < sizeof(syscall_names) / sizeof(syscall_names[0]) && syscall_names[syscall_num] != NULL) {
+//         printf("System call: %s\n", syscall_names[syscall_num]);
+//     } else {
+//         printf("Unknown system call: %d\n", syscall_num);
+//     }
+// }
