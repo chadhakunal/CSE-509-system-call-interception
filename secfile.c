@@ -17,8 +17,6 @@
 #define MAX_FD 4096
 #define AES_BLOCK_SIZE 16
 
-char* conf_fd[MAX_FD] = {NULL};
-
 char* get_filename(pid_t child, unsigned long addr) {
     char* filename = malloc(4096);
     if (!filename) return NULL;
@@ -45,35 +43,6 @@ bool is_conf_file(char* filename) {
     return ext && strcmp(ext, ".conf") == 0;
 }
 
-void trace(pid_t child, bool is_entry, unsigned char* encryption_key, char* tmp_data) {
-    struct user_regs_struct regs;
-
-    ptrace(PTRACE_GETREGS, child, NULL, &regs);
-    int syscall_num = regs.orig_rax;
-
-    switch (syscall_num) {
-        case SYS_open:
-        case SYS_openat:
-        case SYS_creat:
-            if (is_entry) {
-                unsigned long pathname_addr = (syscall_num == SYS_open || syscall_num == SYS_creat) ? regs.rdi : regs.rsi;
-                tmp_data = get_filename(child, pathname_addr);
-            } else {
-                int fd = regs.rax;
-                if (fd >= 0 && fd < MAX_FD) {
-                    if (tmp_data != NULL && is_conf_file(tmp_data)) {
-                        printf("Tracking conf file: %s!\n", tmp_data);
-                        conf_fd[fd] = tmp_data;
-                    }
-                }
-            }
-            break;
-            
-        default:
-            break;
-    }
-}
-
 int main(int argc, char** argv) {
     if (argc < 4) {
         fprintf(stderr, "Usage: %s <encryption_key> <program> <args>\n", argv[0]);
@@ -89,7 +58,10 @@ int main(int argc, char** argv) {
     char* program_name = argv[2];
     char** program_args = &argv[3];
 
-    char* tmp_data = NULL;
+    char* conf_fd[MAX_FD] = {NULL};
+    char* filename = NULL;
+    struct user_regs_struct regs;
+    bool is_entry = true;
 
     pid_t child;
     int status;
@@ -107,18 +79,36 @@ int main(int argc, char** argv) {
                 break;
             }
 
-            trace(child, true, &encryption_key, &tmp_data);
+            ptrace(PTRACE_GETREGS, child, NULL, &regs);
+            int syscall_num = regs.orig_rax;
 
-            ptrace(PTRACE_SYSCALL, child, NULL, NULL);
-            waitpid(child, &status, 0);
-
-            if (WIFEXITED(status) || WIFSIGNALED(status)) {
-                break;
+            switch (syscall_num) {
+                case SYS_open:
+                case SYS_openat:
+                case SYS_creat:
+                    if (is_entry) {
+                        unsigned long pathname_addr = (syscall_num == SYS_open || syscall_num == SYS_creat) ? regs.rdi : regs.rsi;
+                        filename = get_filename(child, pathname_addr);
+                        printf("Setting Filename: %s\n", filename);
+                    } else {
+                        printf("Checking filename: %s\n", filename);
+                        int fd = regs.rax;
+                        if (fd >= 0 && fd < MAX_FD) {
+                            if (filename != NULL && is_conf_file(filename)) {
+                                printf("Tracking conf file: %s!\n", filename);
+                                conf_fd[fd] = filename;
+                            }
+                        }
+                    }
+                    break;
+                    
+                default:
+                    break;
             }
 
-            trace(child, false, &encryption_key, &tmp_data);
+            is_entry = !is_entry;
         }
     }
-    free(tmp_data);
+    free(filename);
     return 0;
 }
