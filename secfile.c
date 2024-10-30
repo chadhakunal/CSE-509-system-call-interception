@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
     char* conf_fd[MAX_FD] = {NULL};
     char* filename = NULL;
     struct user_regs_struct regs;
-    bool is_entry = true;
+    bool is_entry = false;
 
     pid_t child;
     int status;
@@ -89,13 +89,10 @@ int main(int argc, char** argv) {
                     if (is_entry) {
                         unsigned long pathname_addr = (syscall_num == SYS_open || syscall_num == SYS_creat) ? regs.rdi : regs.rsi;
                         filename = get_filename(child, pathname_addr);
-                        printf("Setting Filename: %s\n", filename);
                     } else {
-                        printf("Checking filename: %s\n", filename);
                         int fd = regs.rax;
                         if (fd >= 0 && fd < MAX_FD) {
                             if (filename != NULL && is_conf_file(filename)) {
-                                printf("Tracking conf file: %s!\n", filename);
                                 conf_fd[fd] = filename;
                             }
                         }
@@ -107,6 +104,13 @@ int main(int argc, char** argv) {
             }
 
             is_entry = !is_entry;
+        }
+
+        printf("Tracking conf files: \n");
+        for(int i = 0; i < MAX_FD; i++) {
+            if(conf_fd[i] != NULL) {
+                printf("%s\n", conf_fd[i]);
+            }
         }
     }
     free(filename);
