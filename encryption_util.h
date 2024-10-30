@@ -7,6 +7,6 @@
 
 void handle_open_ssl_errors();
 int aes_encrypt(unsigned char* plaintext, unsigned char* key, unsigned char* iv, unsigned char* ciphertext);
-int aes_decrypt(unsigned char* ciphertext, unsigned char* key, unsigned char* iv, unsigned char* plaintext);
+int aes_decrypt(unsigned char* ciphertext, int ciphertext_len, unsigned char* key, unsigned char* iv, unsigned char* plaintext);
 
 #endif
