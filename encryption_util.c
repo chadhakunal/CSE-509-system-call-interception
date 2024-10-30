@@ -1,7 +1,4 @@
-#include <string.h>
-#include <openssl/evp.h>
-#include <openssl/aes.h>
-#include <openssl/rand.h>
+#include "encryption_util.h"
 
 void handle_open_ssl_errors() {
     ERR_print_errors_fp(stderr);
