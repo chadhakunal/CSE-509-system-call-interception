@@ -6,6 +6,9 @@
 #include <sys/user.h>
 #include <unistd.h>
 
+#include "encryption_util.c"
+
+
 const char *syscall_names[] = {
     [0] = "read",
     [1] = "write",
@@ -45,10 +48,38 @@ int main(int argc, char** argv) {
     int status;
     struct user_regs_struct regs;
 
+
+    unsigned char *plaintext = (unsigned char *)"This is a secret message!";
+    
+    unsigned char key[AES_KEY_SIZE];
+    unsigned char iv[AES_BLOCK_SIZE];
+    
+    if (!RAND_bytes(key, AES_KEY_SIZE) || !RAND_bytes(iv, AES_BLOCK_SIZE)) {
+        fprintf(stderr, "Random key/IV generation failed\n");
+        return 1;
+    }
+
+    unsigned char ciphertext[128];
+    unsigned char decryptedtext[128];
+
+    aes_encrypt(plaintext, key, iv, ciphertext);
+    
+    aes_decrypt(ciphertext, key, iv, decryptedtext);
+    decryptedtext += '\0';
+    
+    printf("Plaintext: %s\n", plaintext);
+    printf("Ciphertext (hex): ");
+    for (int i = 0; i < ciphertext_len; i++) {
+        printf("%02x", ciphertext[i]);
+    }
+    printf("\n");
+    
+    printf("Decrypted text: %s\n", decryptedtext);
+
     child = fork();
     if(child == 0) {
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-        execvp(program, program_args);
+        execvp(program_name, program_args);
     } else {
         waitpid(child, &status, 0);
         while(WIFEXITED(status)) {
