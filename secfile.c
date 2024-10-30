@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     unsigned char *plaintext = (unsigned char *)"This is a secret message!";
     unsigned char iv[16];
     
-    if (!RAND_bytes(iv, AES_BLOCK_SIZE)) {
+    if (!RAND_bytes(iv, 16)) {
         fprintf(stderr, "Random key/IV generation failed\n");
         return 1;
     }
@@ -59,19 +59,19 @@ int main(int argc, char** argv) {
     unsigned char ciphertext[128];
     unsigned char decryptedtext[128];
 
-    aes_encrypt(plaintext, encryption_key, iv, ciphertext);
+    int ciphertext_len = aes_encrypt(plaintext, key, iv, ciphertext);
     
-    aes_decrypt(ciphertext, encryption_key, iv, decryptedtext);
-    // decryptedtext[strlen(decryptedtext) - 1] = '\0';
+    int decryptedtext_len = aes_decrypt(ciphertext, ciphertext_len, key, iv, decryptedtext);
+    decryptedtext[decryptedtext_len] = '\0';
     
     printf("Plaintext: %s\n", plaintext);
     printf("Ciphertext (hex): ");
-    for (int i = 0; i < strlen(ciphertext); i++) {
+    for (int i = 0; i < ciphertext_len; i++) {
         printf("%02x", ciphertext[i]);
     }
     printf("\n");
     
-    // printf("Decrypted text: %s\n", decryptedtext);
+    printf("Decrypted text: %s\n", decryptedtext);
 
     child = fork();
     if(child == 0) {
