@@ -97,19 +97,45 @@ int main(int argc, char** argv) {
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         execvp(program_name, program_args);
     } else {
-        waitpid(child, &status, 0);
-        while (WIFSTOPPED(status)) {
-            // Entry
+        while (1) {
             ptrace(PTRACE_SYSCALL, child, NULL, NULL);
             waitpid(child, &status, 0);
-            trace(child, true, &encryption_key, &tmp_data);
 
-            // Exit
+            if (WIFEXITED(status) || WIFSIGNALED(status)) {
+                break;
+            }
+
+            if (WIFSTOPPED(status) && WSTOPSIG(status) & 0x80) {
+                printf("SYSTEM CALL ENTERED!");
+            }
+
             ptrace(PTRACE_SYSCALL, child, NULL, NULL);
             waitpid(child, &status, 0);
-            trace(child, false, &encryption_key, &tmp_data);
+
+            if (WIFEXITED(status) || WIFSIGNALED(status)) {
+                break;
+            }
+
+            if (WIFSTOPPED(status) && WSTOPSIG(status) & 0x80) {
+                printf("SYSTEM CALL EXIT!");
+            }
         }
+        
+        // waitpid(child, &status, 0);
+        // while (WIFSTOPPED(status)) {
+        //     // Entry
+        //     ptrace(PTRACE_SYSCALL, child, NULL, NULL);
+        //     waitpid(child, &status, 0);
+        //     trace(child, true, &encryption_key, &tmp_data);
+
+        //     // Exit
+        //     ptrace(PTRACE_SYSCALL, child, NULL, NULL);
+        //     waitpid(child, &status, 0);
+        //     trace(child, false, &encryption_key, &tmp_data);
+        // }
     }
+
+    free(tmp_data);
 
     return 0;
 }
