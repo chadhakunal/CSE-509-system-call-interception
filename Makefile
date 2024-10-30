@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -g
-LDFLAGS = -lcrypto
+LDFLAGS = -lcrypto -lssl
 
 TARGET = secfile
 SRCS = secfile.c encryption_util.c

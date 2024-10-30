@@ -25,7 +25,7 @@ void set_secfile_encrypted(const char* filename) {
     }
 }
 
-bool get_secfile_encrypted(const char* filename) {
+bool is_file_encrypted(const char* filename) {
     const char* attr_name = "user.secfile_encrypted";
     char attr_value[5] = {0};
     if (getxattr(filename, attr_name, attr_value, sizeof(attr_value)) == -1) {
@@ -36,17 +36,14 @@ bool get_secfile_encrypted(const char* filename) {
     return strcmp(attr_value, "true") == 0;
 }
 
-void aes_ctr_crypt(const unsigned char* key, unsigned char* data, size_t length, unsigned long offset) {
-    AES_KEY aes_key;
-    unsigned char iv[AES_BLOCK_SIZE] = {0};
-    unsigned char ecount_buf[AES_BLOCK_SIZE] = {0};
-    unsigned int num = 0;
+void xor_crypt(const unsigned char* key, unsigned char* data, size_t length, unsigned long offset) {
+    size_t key_length = 32;  // Assuming a 256-bit (32-byte) key
+    size_t key_index;
 
-    AES_set_encrypt_key(key, 128, &aes_key);
-    
-    *(unsigned long*)(iv + 8) = offset / AES_BLOCK_SIZE;
-
-    AES_ctr128_encrypt(data, data, length, &aes_key, iv, ecount_buf, &num);
+    for (size_t i = 0; i < length; i++) {
+        key_index = (i + offset) % key_length;  // Wrap around the key if needed
+        data[i] ^= key[key_index];
+    }
 }
 
 char* get_filename(pid_t child, unsigned long addr) {
@@ -73,6 +70,46 @@ char* get_filename(pid_t child, unsigned long addr) {
 bool is_conf_file(char* filename) {
     const char* ext = strrchr(filename, '.');
     return ext && strcmp(ext, ".conf") == 0;
+}
+
+void handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
+    unsigned char buffer[count];
+
+    for (size_t i = 0; i < count; i += sizeof(long)) {
+        long word = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
+        if (word == -1) {
+            perror("Error reading data from child process");
+            return;
+        }
+        memcpy(buffer + i, &word, sizeof(word));
+    }
+
+    xor_crypt(key, buffer, count, offset);
+
+    for (size_t i = 0; i < count; i += sizeof(long)) {
+        long word;
+        memcpy(&word, buffer + i, sizeof(word));
+        if (ptrace(PTRACE_POKEDATA, child, buf_addr + i, word) == -1) {
+            perror("Error writing decrypted data to child process");
+            return;
+        }
+    }
+}
+
+void handle_encrypted_write(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
+    unsigned char buffer[count];
+    for (size_t i = 0; i < count; i += sizeof(long)) {
+        long word = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
+        memcpy(buffer + i, &word, sizeof(word));
+    }
+
+    xor_crypt(key, buffer, count, offset);
+
+    for (size_t i = 0; i < count; i += sizeof(long)) {
+        long word;
+        memcpy(&word, buffer + i, sizeof(word));
+        ptrace(PTRACE_POKEDATA, child, buf_addr + i, word);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -125,13 +162,46 @@ int main(int argc, char** argv) {
                         int fd = regs.rax;
                         if (fd >= 0 && fd < MAX_FD) {
                             if (filename != NULL && is_conf_file(filename)) {
-                                conf_fd[fd] = filename;
-                                set_secfile_encrypted(filename);
+                                conf_fd[fd] = malloc(strlen(filename) + 1);
+                                if (conf_fd[fd] == NULL) {
+                                    perror("Failed to allocate memory");
+                                    exit(1);
+                                }
+                                strcpy(conf_fd[fd], filename);
                             }
                         }
                     }
                     break;
-                    
+                
+                case SYS_read:
+                    if (is_entry) {
+                        int fd = regs.rdi;
+                        if (fd >= 0 && fd < MAX_FD && conf_fd[fd] != NULL) {
+                            unsigned long buf_addr = regs.rsi;
+                            size_t count = regs.rdx;
+                            unsigned long offset = regs.r10;
+
+                            if (is_file_encrypted(conf_fd[fd])) {
+                                handle_encrypted_read(child, buf_addr, count, offset, encryption_key);
+                            } else {
+                                printf("read - decrypt for file %s skipped as it is not encrypted", conf_fd[fd]);
+                            }
+                        }
+                    }
+                    break;
+                
+                case SYS_write:
+                    if (syscall_start) {
+                        int fd = regs.rdi;
+                        if (fd >= 0 && fd < MAX_FD && conf_fd[fd] != NULL) {
+                            unsigned long buf_addr = regs.rsi;
+                            size_t count = regs.rdx;
+                            unsigned long offset = regs.r10;
+                            handle_encrypted_write(child, buf_addr, count, offset, encryption_key);
+                        }
+                    }
+                    break;
+
                 default:
                     break;
             }
@@ -142,7 +212,7 @@ int main(int argc, char** argv) {
         printf("Tracking conf files: \n");
         for(int i = 0; i < MAX_FD; i++) {
             if(conf_fd[i] != NULL) {
-                printf("%s (%d)", conf_fd[i], get_secfile_encrypted(conf_fd[i]));
+                printf("%s: ", conf_fd[i]);
             }
         }
     }
