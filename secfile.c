@@ -117,7 +117,7 @@ int main(int argc, char** argv) {
             }
 
             if (WIFSTOPPED(status) && (WSTOPSIG(status) & 0x80)) {
-                giprintf("SYSTEM CALL EXIT!");
+                printf("SYSTEM CALL EXIT!");
             }
         }
         
