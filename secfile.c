@@ -11,7 +11,7 @@
 #include <syscall.h>
 #include <errno.h>
 #include <sys/xattr.h>
-#include <openssl/aes.h>
+// #include <openssl/aes.h>
 
 #define MAX_FD 4096
 #define AES_BLOCK_SIZE 16
@@ -46,23 +46,21 @@ void xor_crypt(const unsigned char* key, unsigned char* data, size_t length, uns
     }
 }
 
-void aes_crypt(const unsigned char* key, unsigned char* data, size_t length, unsigned long offset) {
-    AES_KEY aes_key;
-    if (AES_set_encrypt_key(key, 256, &aes_key) != 0) {
-        fprintf(stderr, "Error setting AES encryption key\n");
-        return;
-    }
+// void aes_crypt(const unsigned char* key, unsigned char* data, size_t length, unsigned long offset) {
+//     AES_KEY aes_key;
+//     if (AES_set_encrypt_key(key, 256, &aes_key) != 0) {
+//         fprintf(stderr, "Error setting AES encryption key\n");
+//         return;
+//     }
 
-    unsigned char iv[AES_BLOCK_SIZE] = {0};
-    unsigned char ecount_buf[AES_BLOCK_SIZE] = {0};
-    unsigned int num = 0;
+//     unsigned char iv[AES_BLOCK_SIZE] = {0};
+//     unsigned char ecount_buf[AES_BLOCK_SIZE] = {0};
+//     unsigned int num = 0;
 
-    // Set the counter (IV) with the offset for CTR mode
-    *(unsigned long*)(iv + 8) = offset / AES_BLOCK_SIZE;
+//     *(unsigned long*)(iv + 8) = offset / AES_BLOCK_SIZE;
 
-    // Encrypt data using AES CTR
-    AES_ctr128_encrypt(data, data, length, &aes_key, iv, ecount_buf, &num);
-}
+//     AES_ctr128_encrypt(data, data, length, &aes_key, iv, ecount_buf, &num);
+// }
 
 char* get_filename(pid_t child, unsigned long addr) {
     char* filename = malloc(4096);
