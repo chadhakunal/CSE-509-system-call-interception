@@ -17,14 +17,6 @@
 #define MAX_FD 4096
 #define AES_BLOCK_SIZE 16
 
-// TODO: Fix Read
-// TODO: Close
-// TODO: Fix encryption
-// TODO: Handle writing at random offsets
-// TODO: Handle rename, dup, dup2
-// TODO: Handle pread and pwrite
-// TODO: Handle any other system calls used in gedit, vim, echo, cat firefox 
-
 void set_secfile_encrypted(const char* filename) {
     const char* attr_name = "user.secfile_encrypted";
     const char* attr_value = "true";
@@ -127,35 +119,39 @@ bool is_conf_file(char* filename) {
 // }
 
 char* handle_encrypted_read_entry(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
-    unsigned char buffer[count];
+    unsigned char* buffer = malloc(count);
+    if (buffer == NULL) {
+        perror("Failed to allocate memory for read buffer");
+        return NULL;
+    }
 
     for (size_t i = 0; i < count; i += sizeof(long)) {
         long word = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
         if (word == -1) {
             perror("Error reading data from child process");
-            return;
+            free(buffer);
+            return NULL;
         }
         memcpy(buffer + i, &word, sizeof(word));
     }
 
     xor_crypt(key, buffer, count, offset);
-    return buffer;
+    return (char*)buffer;
 }
 
-void handle_encrypted_read_exit(char* message, pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
-    size_t message_len = strlen(message);
+void handle_encrypted_read_exit(char* read_buffer, pid_t child, unsigned long buf_addr, size_t count) {
+    if (read_buffer == NULL) return;
 
     for (size_t i = 0; i < count; i += sizeof(long)) {
-        long word = 0;
-
-        size_t bytes_to_copy = (i + sizeof(long) <= message_len) ? sizeof(long) : message_len - (i % message_len);
-        memcpy(&word, message + (i % message_len), bytes_to_copy);
-
+        long word;
+        memcpy(&word, read_buffer + i, sizeof(word));
         if (ptrace(PTRACE_POKEDATA, child, buf_addr + i, word) == -1) {
-            perror("Error writing 'Hello World' to child process buffer");
+            perror("Error writing modified data to child process buffer");
             return;
         }
     }
+
+    free(read_buffer);
 }
 
 void handle_encrypted_write(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
@@ -191,7 +187,7 @@ int main(int argc, char** argv) {
 
     char* conf_fd[MAX_FD] = {NULL};
     char* filename = NULL;
-    char* read_buffer = NULL;
+    unsigned char* read_buffer = NULL;
     struct user_regs_struct regs;
     bool is_entry = false;
 
@@ -239,25 +235,19 @@ int main(int argc, char** argv) {
                 case SYS_read:
                     if (is_entry) {
                         int fd = regs.rdi;
-                        if (fd >= 0 && fd < MAX_FD && conf_fd[fd] != NULL) {
+                        if (fd >= 0 && fd < MAX_FD && conf_fd[fd]) {
                             unsigned long buf_addr = regs.rsi;
                             size_t count = regs.rdx;
                             unsigned long offset = regs.r10;
-
-                            if (is_file_encrypted(conf_fd[fd])) {
-                                read_buffer = handle_encrypted_read_entry(child, buf_addr, count, offset, encryption_key);
-                            } else {
-                                printf("read - decrypt for file %s skipped as it is not encrypted", conf_fd[fd]);
-                            }
+                            // if (is_file_encrypted(conf_fd[fd])) {
+                            //     read_buffer = handle_encrypted_read_entry(child, buf_addr, count, offset, encryption_key);
+                            // }
+                            read_buffer = handle_encrypted_read_entry(child, buf_addr, count, offset, encryption_key);
                         }
-                    } else {
-                        int fd = regs.rdi;
-                        if (fd >= 0 && fd < MAX_FD && conf_fd[fd] != NULL) {
-                            unsigned long buf_addr = regs.rsi;
-                            size_t count = regs.rdx;
-                            unsigned long offset = regs.r10;
-                            handle_encrypted_read_exit(read_buffer, child, buf_addr, count, offset, encryption_key);
-                        }
+                    } else if (read_buffer) {
+                        handle_encrypted_read_exit(read_buffer, child, regs.rsi, regs.rdx);
+                        free(read_buffer);
+                        read_buffer = NULL;
                     }
                     break;
                 
@@ -269,6 +259,7 @@ int main(int argc, char** argv) {
                             size_t count = regs.rdx;
                             unsigned long offset = regs.r10;
                             handle_encrypted_write(child, buf_addr, count, offset, encryption_key);
+                            set_secfile_encrypted(conf_fd[fd]);
                         }
                     }
                     break;

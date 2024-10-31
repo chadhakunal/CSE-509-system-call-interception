@@ -2,4 +2,10 @@
 CSE-509-system-call-interception
 
 
-140316665637888:error:0606506D:digital envelope routines:EVP_DecryptFinal_ex:wrong final block length:../crypto/evp/evp_enc.c:599:
+// TODO: Fix Read
+// TODO: Close
+// TODO: Fix encryption
+// TODO: Handle writing at random offsets
+// TODO: Handle rename, dup, dup2
+// TODO: Handle pread and pwrite
+// TODO: Handle any other system calls used in gedit, vim, echo, cat firefox 
