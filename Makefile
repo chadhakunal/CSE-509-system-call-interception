@@ -3,7 +3,7 @@ CFLAGS = -Wall -g
 LDFLAGS = -lcrypto -lssl
 
 TARGET = secfile
-SRCS = secfile.c encryption_util.c
+SRCS = secfile.c
 OBJS = $(SRCS:.c=.o)
 
 all: $(TARGET)

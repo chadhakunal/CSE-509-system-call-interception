@@ -37,11 +37,11 @@ bool is_file_encrypted(const char* filename) {
 }
 
 void xor_crypt(const unsigned char* key, unsigned char* data, size_t length, unsigned long offset) {
-    size_t key_length = 64;  // Assuming a 256-bit (32-byte) key
+    size_t key_length = 32;
     size_t key_index;
 
     for (size_t i = 0; i < length; i++) {
-        key_index = (i + offset) % key_length;  // Wrap around the key if needed
+        key_index = (i + offset) % key_length;
         data[i] ^= key[key_index];
     }
 }
@@ -72,70 +72,24 @@ bool is_conf_file(char* filename) {
     return ext && strcmp(ext, ".conf") == 0;
 }
 
-// void handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
-//     // unsigned char buffer[count];
-
-//     // for (size_t i = 0; i < count; i += sizeof(long)) {
-//     //     long word = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
-//     //     if (word == -1) {
-//     //         perror("Error reading data from child process");
-//     //         return;
-//     //     }
-//     //     memcpy(buffer + i, &word, sizeof(word));
-//     // }
-
-//     // xor_crypt(key, buffer, count, offset);
-
-//     char* tmp = "Hello World";
-
-//     for (size_t i = 0; i < strlen(tmp); i += sizeof(long)) {
-//         long word;
-//         memcpy(&word, tmp + i, sizeof(word));
-//         if (ptrace(PTRACE_POKEDATA, child, buf_addr + i, word) == -1) {
-//             perror("Error writing decrypted data to child process");
-//             return;
-//         }
-//     }
-// }
-
-// void handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* keyT) {
-//     const char* message = "Hello World";
-//     size_t message_len = strlen(message);
-
-//     // Fill the child's buffer with "Hello World" repeatedly
-//     for (size_t i = 0; i < count; i += sizeof(long)) {
-//         long word = 0;
-
-//         // Copy up to sizeof(long) bytes from message or zero-fill
-//         size_t bytes_to_copy = (i + sizeof(long) <= message_len) ? sizeof(long) : message_len - (i % message_len);
-//         memcpy(&word, message + (i % message_len), bytes_to_copy);
-
-//         // Write the modified `word` to the child's buffer at `buf_addr`
-//         if (ptrace(PTRACE_POKEDATA, child, buf_addr + i, word) == -1) {
-//             perror("Error writing 'Hello World' to child process buffer");
-//             return;
-//         }
-//     }
-// }
-
-char* handle_encrypted_read_entry(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
+char* handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
     unsigned char* buffer = malloc(count);
     if (buffer == NULL) {
         perror("Failed to allocate memory for read buffer");
         return NULL;
     }
 
-    for (size_t i = 0; i < count; i += sizeof(long)) {
-        long word = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
-        if (word == -1) {
+    for (size_t i = 0; i < count; i++) {
+        long byte = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
+        if (byte == -1) {
             perror("Error reading data from child process");
             free(buffer);
             return NULL;
         }
-        memcpy(buffer + i, &word, sizeof(word));
+        buffer[i] = byte;
     }
 
-    xor_crypt(key, buffer, count, offset);
+    // xor_crypt(key, buffer, count, offset);
     return (char*)buffer;
 }
 
@@ -187,7 +141,11 @@ int main(int argc, char** argv) {
 
     char* conf_fd[MAX_FD] = {NULL};
     char* filename = NULL;
-    unsigned char* read_buffer = NULL;
+    unsigned long read_buf_addr;
+    size_t read_buf_count;
+    unsigned long read_buf_offset;
+    int fd;
+    
     struct user_regs_struct regs;
     bool is_entry = false;
 
@@ -218,7 +176,7 @@ int main(int argc, char** argv) {
                         unsigned long pathname_addr = (syscall_num == SYS_open || syscall_num == SYS_creat) ? regs.rdi : regs.rsi;
                         filename = get_filename(child, pathname_addr);
                     } else {
-                        int fd = regs.rax;
+                        fd = regs.rax;
                         if (fd >= 0 && fd < MAX_FD) {
                             if (filename != NULL && is_conf_file(filename)) {
                                 conf_fd[fd] = malloc(strlen(filename) + 1);
@@ -234,26 +192,22 @@ int main(int argc, char** argv) {
                 
                 case SYS_read:
                     if (is_entry) {
-                        int fd = regs.rdi;
+                        fd = regs.rdi;
                         if (fd >= 0 && fd < MAX_FD && conf_fd[fd]) {
-                            unsigned long buf_addr = regs.rsi;
-                            size_t count = regs.rdx;
-                            unsigned long offset = regs.r10;
-                            // if (is_file_encrypted(conf_fd[fd])) {
-                            //     read_buffer = handle_encrypted_read_entry(child, buf_addr, count, offset, encryption_key);
-                            // }
-                            read_buffer = handle_encrypted_read_entry(child, buf_addr, count, offset, encryption_key);
+                            read_buf_addr = regs.rsi;
+                            read_buf_count = regs.rdx;
+                            read_buf_offset = regs.r10;
                         }
-                    } else if (read_buffer) {
-                        handle_encrypted_read_exit(read_buffer, child, regs.rsi, regs.rdx);
-                        free(read_buffer);
-                        read_buffer = NULL;
+                    } else {
+                        if (is_file_encrypted(conf_fd[fd])) {
+                            handle_encrypted_read(child, read_buf_addr, read_buf_count, read_buf_offset, encryption_key);
+                        }
                     }
                     break;
                 
                 case SYS_write:
                     if (is_entry) {
-                        int fd = regs.rdi;
+                        fd = regs.rdi;
                         if (fd >= 0 && fd < MAX_FD && conf_fd[fd] != NULL) {
                             unsigned long buf_addr = regs.rsi;
                             size_t count = regs.rdx;
@@ -266,7 +220,7 @@ int main(int argc, char** argv) {
 
                 case SYS_close:
                     if (!is_entry) {
-                        int fd = regs.rdi;
+                        fd = regs.rdi;
                         if (fd >= 0 && fd < MAX_FD && conf_fd[fd] != NULL) {
                             free(conf_fd[fd]);
                             conf_fd[fd] = NULL;
@@ -279,13 +233,6 @@ int main(int argc, char** argv) {
             }
 
             is_entry = !is_entry;
-        }
-
-        printf("Tracking conf files: \n");
-        for(int i = 0; i < MAX_FD; i++) {
-            if(conf_fd[i] != NULL) {
-                printf("%s: ", conf_fd[i]);
-            }
         }
     }
     free(filename);
