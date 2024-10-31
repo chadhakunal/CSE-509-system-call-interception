@@ -256,7 +256,7 @@ int main(int argc, char** argv) {
                             unsigned long buf_addr = regs.rsi;
                             size_t count = regs.rdx;
                             unsigned long offset = regs.r10;
-                            handle_encrypted_read_entry(read_buffer, child, buf_addr, count, offset, encryption_key);
+                            handle_encrypted_read_exit(read_buffer, child, buf_addr, count, offset, encryption_key);
                         }
                     }
                     break;
