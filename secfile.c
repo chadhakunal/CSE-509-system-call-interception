@@ -142,7 +142,7 @@ char* handle_encrypted_read_entry(pid_t child, unsigned long buf_addr, size_t co
     return buffer;
 }
 
-void handle_encrypted_read_exit(char* message, pid_t child, unsigned long buf_addr, unsigned long offset, const unsigned char* key) {
+void handle_encrypted_read_exit(char* message, pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
     size_t message_len = strlen(message);
 
     for (size_t i = 0; i < count; i += sizeof(long)) {
