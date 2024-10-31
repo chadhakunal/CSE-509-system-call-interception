@@ -72,7 +72,7 @@ bool is_conf_file(char* filename) {
     return ext && strcmp(ext, ".conf") == 0;
 }
 
-char* handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
+void handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
     unsigned char* buffer = malloc(count);
     if (buffer == NULL) {
         perror("Failed to allocate memory for read buffer");
@@ -89,23 +89,14 @@ char* handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, u
         buffer[i] = byte;
     }
 
-    // xor_crypt(key, buffer, count, offset);
-    return (char*)buffer;
-}
+    xor_crypt(key, buffer, count, offset);
 
-void handle_encrypted_read_exit(char* read_buffer, pid_t child, unsigned long buf_addr, size_t count) {
-    if (read_buffer == NULL) return;
-
-    for (size_t i = 0; i < count; i += sizeof(long)) {
-        long word;
-        memcpy(&word, read_buffer + i, sizeof(word));
-        if (ptrace(PTRACE_POKEDATA, child, buf_addr + i, word) == -1) {
+    for (size_t i = 0; i < count; i++) {
+        if (ptrace(PTRACE_POKEDATA, child, buf_addr + i, (void*)(long)buffer[i]) == -1) {
             perror("Error writing modified data to child process buffer");
             return;
         }
     }
-
-    free(read_buffer);
 }
 
 void handle_encrypted_write(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
@@ -142,10 +133,8 @@ int main(int argc, char** argv) {
     char* conf_fd[MAX_FD] = {NULL};
     char* filename = NULL;
     unsigned long read_buf_addr;
-    size_t read_buf_count;
-    unsigned long read_buf_offset;
     int fd;
-    
+
     struct user_regs_struct regs;
     bool is_entry = false;
 
@@ -195,12 +184,10 @@ int main(int argc, char** argv) {
                         fd = regs.rdi;
                         if (fd >= 0 && fd < MAX_FD && conf_fd[fd]) {
                             read_buf_addr = regs.rsi;
-                            read_buf_count = regs.rdx;
-                            read_buf_offset = regs.r10;
                         }
                     } else {
-                        if (is_file_encrypted(conf_fd[fd])) {
-                            handle_encrypted_read(child, read_buf_addr, read_buf_count, read_buf_offset, encryption_key);
+                        if (fd >= 0 && fd < MAX_FD && conf_fd[fd] && is_file_encrypted(conf_fd[fd])) {
+                            handle_encrypted_read(child, read_buf_addr, regs.orig_rax, regs.r10, encryption_key);
                         }
                     }
                     break;
