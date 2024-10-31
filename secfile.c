@@ -119,17 +119,18 @@ void handle_encrypted_write(pid_t child, unsigned long buf_addr, size_t count, u
 }
 
 int main(int argc, char** argv) {
-    if (argc < 4) {
-        fprintf(stderr, "Usage: %s <encryption_key> <program> <args>\n", argv[0]);
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s <encryption_key> <program> [args...]\n", argv[0]);
         return 1;
     }
     if (strlen(argv[1]) != 64) {
-        fprintf(stderr, "Error: Encryption key must be exactly 32 bytes (256 bits).\n");
+        fprintf(stderr, "Error: Encryption key must be exactly 64 characters.\n");
         return 1;
     }
+
     unsigned char* encryption_key = (unsigned char*)argv[1];
     char* program_name = argv[2];
-    char** program_args = &argv[3];
+    char** program_args = &argv[2]; 
 
     char* conf_fd[MAX_FD] = {NULL};
     char* filename = NULL;
@@ -142,6 +143,8 @@ int main(int argc, char** argv) {
     if (child == 0) {
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         execvp(program_name, program_args);
+        perror("execvp failed");
+        exit(1);
     } else {
         int status;
         while (1) {
