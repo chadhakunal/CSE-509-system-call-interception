@@ -63,7 +63,7 @@ To use `secfile`, pass the generated key along with the program and `.conf` file
    - The encrypted content will be automatically decrypted and displayed.
 
 ## Tested Applications
-The `secfile` tool has been tested with:
+We have tested the `secfile` tool with:
 1. `vim`
 2. `nano`
 3. `cat`
