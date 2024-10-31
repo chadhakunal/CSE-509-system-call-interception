@@ -37,7 +37,7 @@ bool is_file_encrypted(const char* filename) {
 }
 
 void xor_crypt(const unsigned char* key, unsigned char* data, size_t length, unsigned long offset) {
-    size_t key_length = 32;  // Assuming a 256-bit (32-byte) key
+    size_t key_length = 64;  // Assuming a 256-bit (32-byte) key
     size_t key_index;
 
     for (size_t i = 0; i < length; i++) {
@@ -72,25 +72,47 @@ bool is_conf_file(char* filename) {
     return ext && strcmp(ext, ".conf") == 0;
 }
 
-void handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
-    unsigned char buffer[count];
+// void handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
+//     // unsigned char buffer[count];
 
+//     // for (size_t i = 0; i < count; i += sizeof(long)) {
+//     //     long word = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
+//     //     if (word == -1) {
+//     //         perror("Error reading data from child process");
+//     //         return;
+//     //     }
+//     //     memcpy(buffer + i, &word, sizeof(word));
+//     // }
+
+//     // xor_crypt(key, buffer, count, offset);
+
+//     char* tmp = "Hello World";
+
+//     for (size_t i = 0; i < strlen(tmp); i += sizeof(long)) {
+//         long word;
+//         memcpy(&word, tmp + i, sizeof(word));
+//         if (ptrace(PTRACE_POKEDATA, child, buf_addr + i, word) == -1) {
+//             perror("Error writing decrypted data to child process");
+//             return;
+//         }
+//     }
+// }
+
+void handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count) {
+    const char* message = "Hello World";
+    size_t message_len = strlen(message);
+
+    // Fill the child's buffer with "Hello World" repeatedly
     for (size_t i = 0; i < count; i += sizeof(long)) {
-        long word = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
-        if (word == -1) {
-            perror("Error reading data from child process");
-            return;
-        }
-        memcpy(buffer + i, &word, sizeof(word));
-    }
+        long word = 0;
 
-    xor_crypt(key, buffer, count, offset);
+        // Copy up to sizeof(long) bytes from message or zero-fill
+        size_t bytes_to_copy = (i + sizeof(long) <= message_len) ? sizeof(long) : message_len - (i % message_len);
+        memcpy(&word, message + (i % message_len), bytes_to_copy);
 
-    for (size_t i = 0; i < count; i += sizeof(long)) {
-        long word;
-        memcpy(&word, buffer + i, sizeof(word));
+        // Write the modified `word` to the child's buffer at `buf_addr`
         if (ptrace(PTRACE_POKEDATA, child, buf_addr + i, word) == -1) {
-            perror("Error writing decrypted data to child process");
+            perror("Error writing 'Hello World' to child process buffer");
             return;
         }
     }
