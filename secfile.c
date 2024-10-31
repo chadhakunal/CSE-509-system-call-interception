@@ -11,8 +11,7 @@
 #include <syscall.h>
 #include <errno.h>
 #include <sys/xattr.h>
-#include <openssl/aes.h>
-#include <openssl/rand.h>
+// #include <openssl/aes.h>
 
 #define MAX_FD 4096
 #define AES_BLOCK_SIZE 16
@@ -46,6 +45,22 @@ void xor_crypt(const unsigned char* key, unsigned char* data, size_t length, uns
         data[i] ^= key[key_index];
     }
 }
+
+// void aes_crypt(const unsigned char* key, unsigned char* data, size_t length, unsigned long offset) {
+//     AES_KEY aes_key;
+//     if (AES_set_encrypt_key(key, 256, &aes_key) != 0) {
+//         fprintf(stderr, "Error setting AES encryption key\n");
+//         return;
+//     }
+
+//     unsigned char iv[AES_BLOCK_SIZE] = {0};
+//     unsigned char ecount_buf[AES_BLOCK_SIZE] = {0};
+//     unsigned int num = 0;
+
+//     *(unsigned long*)(iv + 8) = offset / AES_BLOCK_SIZE;
+
+//     AES_ctr128_encrypt(data, data, length, &aes_key, iv, ecount_buf, &num);
+// }
 
 char* get_filename(pid_t child, unsigned long addr) {
     char* filename = malloc(4096);
@@ -202,6 +217,33 @@ int main(int argc, char** argv) {
                             handle_encrypted_write(child, buf_addr, count, fd_offsets[fd], encryption_key);
                             set_secfile_encrypted(conf_fd[fd]);
                             fd_offsets[fd] += count;
+                        }
+                    }
+                    break;
+                
+                case SYS_pread64:
+                    if (is_entry) {
+                        fd = regs.rdi;
+                        if (fd >= 0 && fd < MAX_FD && conf_fd[fd]) {
+                            read_buf_addr = regs.rsi;
+                        }
+                    } else {
+                        if (fd >= 0 && fd < MAX_FD && conf_fd[fd] && is_file_encrypted(conf_fd[fd])) {
+                            unsigned long offset = regs.r10;
+                            handle_encrypted_read(child, read_buf_addr, regs.rax, offset, encryption_key);
+                        }
+                    }
+                    break;
+
+                case SYS_pwrite64:
+                    if (is_entry) {
+                        fd = regs.rdi;
+                        if (fd >= 0 && fd < MAX_FD && conf_fd[fd]) {
+                            unsigned long buf_addr = regs.rsi;
+                            size_t count = regs.rdx;
+                            unsigned long offset = regs.r10;
+                            handle_encrypted_write(child, buf_addr, count, offset, encryption_key);
+                            set_secfile_encrypted(conf_fd[fd]);
                         }
                     }
                     break;
