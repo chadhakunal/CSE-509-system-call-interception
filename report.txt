@@ -1,0 +1,283 @@
+strace -c -f -e trace=open,openat,close,read,write,stat,fstat,pread64,pwrite64 nano
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+ 27.33    0.000446           4       104           read
+ 26.72    0.000436           6        69        13 openat
+ 18.38    0.000300           5        54         3 stat
+ 12.99    0.000212           3        56           close
+ 10.97    0.000179           3        57           fstat
+  3.62    0.000059           2        23           write
+  0.00    0.000000           0         6           pread64
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.001632                   369        16 total
+
+
+strace -c -f -e trace=open,openat,close,read,write,stat,fstat,pread64,pwrite64,statfs ls
+a.out		   Makefile   report.txt  secfile.o	   test_read.py
+encryption_util.o  README.md  secfile.c   test1234.conf22  write_test.py
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+ 30.68    0.000108          12         9           openat
+ 15.34    0.000054          27         2           write
+ 15.06    0.000053           7         7           read
+ 13.92    0.000049           4        11           close
+ 11.36    0.000040           4        10           fstat
+  7.67    0.000027           3         8           pread64
+  5.97    0.000021          10         2         2 statfs
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.000352                    49         2 total
+
+
+
+strace -c -f -e trace=open,openat,close,read,write,stat,fstat,pread64,pwrite64,statfs,rename,lseek,fsync,writev,fstatfs firefox
+strace: Process 2137 attached
+strace: Process 2138 attached
+strace: Process 2139 attached
+strace: Process 2140 attached
+strace: Process 2141 attached
+strace: Process 2142 attached
+strace: Process 2144 attached
+strace: Process 2143 attached
+strace: Process 2145 attached
+strace: Process 2150 attached
+strace: Process 2149 attached
+strace: Process 2148 attached
+strace: Process 2147 attached
+strace: Process 2146 attached
+strace: Process 2151 attached
+strace: Process 2153 attached
+strace: Process 2152 attached
+strace: Process 2154 attached
+strace: Process 2155 attached
+strace: Process 2156 attached
+strace: Process 2157 attached
+strace: Process 2158 attached
+strace: Process 2159 attached
+strace: Process 2161 attached
+strace: Process 2160 attached
+strace: Process 2162 attached
+strace: Process 2163 attached
+strace: Process 2164 attached
+strace: Process 2165 attached
+strace: Process 2171 attached
+strace: Process 2170 attached
+strace: Process 2169 attached
+strace: Process 2168 attached
+strace: Process 2167 attached
+strace: Process 2166 attached
+strace: Process 2172 attached
+strace: Process 2173 attached
+strace: Process 2174 attached
+strace: Process 2177 attached
+strace: Process 2176 attached
+strace: Process 2175 attached
+strace: Process 2178 attached
+strace: Process 2179 attached
+strace: Process 2181 attached
+strace: Process 2183 attached
+strace: Process 2185 attached
+strace: Process 2184 attached
+strace: Process 2186 attached
+strace: Process 2187 attached
+strace: Process 2188 attached
+strace: Process 2190 attached
+strace: Process 2189 attached
+strace: Process 2191 attached
+strace: Process 2192 attached
+strace: Process 2193 attached
+strace: Process 2194 attached
+strace: Process 2195 attached
+strace: Process 2196 attached
+strace: Process 2197 attached
+strace: Process 2198 attached
+strace: Process 2199 attached
+strace: Process 2200 attached
+strace: Process 2201 attached
+strace: Process 2202 attached
+strace: Process 2203 attached
+strace: Process 2204 attached
+strace: Process 2205 attached
+strace: Process 2206 attached
+strace: Process 2207 attached
+strace: Process 2208 attached
+strace: Process 2209 attached
+strace: Process 2210 attached
+strace: Process 2211 attached
+strace: Process 2214 attached
+strace: Process 2213 attached
+strace: Process 2212 attached
+strace: Process 2215 attached
+strace: Process 2216 attached
+strace: Process 2217 attached
+strace: Process 2218 attached
+strace: Process 2219 attached
+strace: Process 2220 attached
+strace: Process 2222 attached
+strace: Process 2221 attached
+strace: Process 2224 attached
+strace: Process 2223 attached
+strace: Process 2225 attached
+strace: Process 2226 attached
+strace: Process 2227 attached
+strace: Process 2228 attached
+strace: Process 2229 attached
+strace: Process 2230 attached
+strace: Process 2231 attached
+strace: Process 2232 attached
+strace: Process 2233 attached
+strace: Process 2234 attached
+strace: Process 2236 attached
+strace: Process 2235 attached
+strace: Process 2237 attached
+strace: Process 2238 attached
+strace: Process 2239 attached
+strace: Process 2240 attached
+strace: Process 2242 attached
+strace: Process 2241 attached
+strace: Process 2243 attached
+strace: Process 2246 attached
+strace: Process 2245 attached
+strace: Process 2244 attached
+strace: Process 2247 attached
+strace: Process 2248 attached
+strace: Process 2249 attached
+strace: Process 2250 attached
+strace: Process 2251 attached
+strace: Process 2252 attached
+strace: Process 2253 attached
+strace: Process 2254 attached
+strace: Process 2255 attached
+strace: Process 2256 attached
+strace: Process 2257 attached
+strace: Process 2258 attached
+strace: Process 2259 attached
+strace: Process 2260 attached
+strace: Process 2261 attached
+strace: Process 2263 attached
+strace: Process 2262 attached
+strace: Process 2264 attached
+strace: Process 2265 attached
+strace: Process 2266 attached
+strace: Process 2267 attached
+strace: Process 2268 attached
+strace: Process 2269 attached
+strace: Process 2270 attached
+strace: Process 2271 attached
+strace: Process 2272 attached
+strace: Process 2273 attached
+strace: Process 2274 attached
+strace: Process 2275 attached
+strace: Process 2276 attached
+strace: Process 2278 attached
+strace: Process 2277 attached
+strace: Process 2279 attached
+strace: Process 2280 attached
+strace: Process 2281 attached
+strace: Process 2282 attached
+strace: Process 2283 attached
+strace: Process 2284 attached
+strace: Process 2287 attached
+strace: Process 2286 attached
+strace: Process 2285 attached
+strace: Process 2288 attached
+[GFX1-]: RenderCompositorSWGL failed mapping default framebuffer, no dt
+strace: Process 2289 attached
+strace: Process 2291 attached
+strace: Process 2290 attached
+strace: Process 2292 attached
+strace: Process 2293 attached
+strace: Process 2294 attached
+strace: Process 2295 attached
+strace: Process 2296 attached
+strace: Process 2297 attached
+strace: Process 2298 attached
+strace: Process 2300 attached
+strace: Process 2299 attached
+strace: Process 2301 attached
+strace: Process 2302 attached
+strace: Process 2303 attached
+strace: Process 2305 attached
+strace: Process 2304 attached
+strace: Process 2306 attached
+strace: Process 2307 attached
+strace: Process 2308 attached
+strace: Process 2309 attached
+strace: Process 2310 attached
+strace: Process 2311 attached
+strace: Process 2312 attached
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+ 24.64    0.097666           8     11100         8 read
+ 19.26    0.076343           8      8578           write
+ 13.68    0.054209         304       178           rename
+ 10.47    0.041495          12      3254       568 openat
+  8.74    0.034633           8      3856           close
+  6.91    0.027367          10      2491      1027 stat
+  4.89    0.019388          23       830           pread64
+  4.45    0.017645           9      1881           fstat
+  2.84    0.011248          18       620           writev
+  1.90    0.007529          27       274           lseek
+  1.44    0.005711         634         9           fsync
+  0.39    0.001559           3       416           fstatfs
+  0.21    0.000852          13        64        10 statfs
+  0.17    0.000680          97         7           pwrite64
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.396325                 33558      1613 total
+
+
+
+
+
+strace -c -f -e trace=open,openat,close,read,write,stat,fstat,pread64,pwrite64,statfs,rename,lseek,fsync,writev,fstatfs soffice
+strace: Process 4072 attached
+strace: Process 4073 attached
+strace: Process 4074 attached
+strace: Process 4075 attached
+strace: Process 4077 attached
+strace: Process 4076 attached
+strace: Process 4078 attached
+strace: Process 4079 attached
+strace: Process 4081 attached
+strace: Process 4080 attached
+strace: Process 4082 attached
+strace: Process 4083 attached
+strace: Process 4084 attached
+javaldx: Could not find a Java Runtime Environment!
+Please ensure that a JVM and the package libreoffice-java-common
+is installed.
+If it is already installed then try removing ~/.config/libreoffice/4/user/config/javasettings_Linux_*.xml
+Warning: failed to read path from javaldx
+strace: Process 4085 attached
+strace: Process 4086 attached
+strace: Process 4087 attached
+strace: Process 4088 attached
+strace: Process 4089 attached
+strace: Process 4090 attached
+strace: Process 4091 attached
+strace: Process 4092 attached
+strace: Process 4093 attached
+strace: Process 4094 attached
+strace: Process 4095 attached
+strace: Process 4096 attached
+strace: Process 4097 attached
+strace: Process 4098 attached
+strace: Process 4099 attached
+strace: Process 4102 attached
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+ 38.94    0.021826           9      2190       387 openat
+ 18.50    0.010373           7      1357         3 read
+ 13.85    0.007762           4      1573           fstat
+ 12.32    0.006906           3      1915         2 close
+  4.78    0.002677           9       282           writev
+  4.61    0.002585           5       482        98 stat
+  2.45    0.001374           4       329           pread64
+  2.03    0.001136         227         5           rename
+  1.07    0.000600           4       140           fstatfs
+  0.61    0.000344           3        87           write
+  0.57    0.000318           1       179         1 lseek
+  0.28    0.000155           8        18           pwrite64
+  0.00    0.000000           0         6         6 statfs
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.056056                  8563       497 total
+
