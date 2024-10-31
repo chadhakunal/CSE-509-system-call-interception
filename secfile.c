@@ -73,6 +73,8 @@ bool is_conf_file(char* filename) {
 }
 
 void handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
+    if(count == 0) return;
+
     unsigned char* buffer = malloc(count);
     if (buffer == NULL) {
         perror("Failed to allocate memory for read buffer");
@@ -80,38 +82,41 @@ void handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, un
     }
 
     for (size_t i = 0; i < count; i++) {
-        long byte = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
-        if (byte == -1) {
+         long byte = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
+         if (byte == -1) {
             perror("Error reading data from child process");
             free(buffer);
             return NULL;
-        }
-        buffer[i] = byte;
+         }
+         buffer[i] = (unsigned char)byte;
     }
 
+    // printf("DEBUG0: %s\n", buffer);
     xor_crypt(key, buffer, count, offset);
+    printf("DEBUG1: %s\n", buffer);
 
     for (size_t i = 0; i < count; i++) {
         if (ptrace(PTRACE_POKEDATA, child, buf_addr + i, (void*)(long)buffer[i]) == -1) {
             perror("Error writing modified data to child process buffer");
             return;
-        }
+         }
     }
 }
 
 void handle_encrypted_write(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
     unsigned char buffer[count];
-    for (size_t i = 0; i < count; i += sizeof(long)) {
-        long word = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
-        memcpy(buffer + i, &word, sizeof(word));
+    for (size_t i = 0; i < count; i++) {
+        long byte = ptrace(PTRACE_PEEKDATA, child, buf_addr + i, NULL);
+        buffer[i] = (unsigned char)byte;
     }
 
     xor_crypt(key, buffer, count, offset);
 
-    for (size_t i = 0; i < count; i += sizeof(long)) {
-        long word;
-        memcpy(&word, buffer + i, sizeof(word));
-        ptrace(PTRACE_POKEDATA, child, buf_addr + i, word);
+    for (size_t i = 0; i < count; i++) {
+        // long byte;
+        // memcpy(&word, buffer + i, sizeof(word));
+        // ptrace(PTRACE_POKEDATA, child, buf_addr + i, word);
+	ptrace(PTRACE_POKEDATA, child, buf_addr + i, (void*)(long)buffer[i]);
     }
 }
 
@@ -187,7 +192,9 @@ int main(int argc, char** argv) {
                         }
                     } else {
                         if (fd >= 0 && fd < MAX_FD && conf_fd[fd] && is_file_encrypted(conf_fd[fd])) {
-                            handle_encrypted_read(child, read_buf_addr, regs.orig_rax, regs.r10, encryption_key);
+	                  
+			
+                            handle_encrypted_read(child, read_buf_addr, regs.rax, 0, encryption_key);
                         }
                     }
                     break;
