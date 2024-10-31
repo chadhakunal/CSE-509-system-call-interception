@@ -98,7 +98,7 @@ bool is_conf_file(char* filename) {
 //     }
 // }
 
-void handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count) {
+void handle_encrypted_read(pid_t child, unsigned long buf_addr, size_t count, unsigned long offset, const unsigned char* key) {
     const char* message = "Hello World";
     size_t message_len = strlen(message);
 
