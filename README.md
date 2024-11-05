@@ -33,6 +33,7 @@ be opened.
 ### Step 1: Generate a Key
 Generate a 256-bit encryption key using OpenSSL:
 ```bash
+sudo apt install libssl-dev
 KEY=$(openssl rand -hex 32)
 ```
 
